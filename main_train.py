@@ -3,6 +3,7 @@
 
 import torch
 from torch import device, nn
+from torch.optim import optimizer
 from torch.utils.data import DataLoader 
 from torchvision import datasets
 from torchvision.transforms import ToTensor
@@ -29,12 +30,8 @@ class MyNetwork(nn.Module):
         logits = self.linear_relu_stack(x)
         return logits
 
-# useful functions with a comment for each function
-def train_network(train_dataloader: DataLoader, network: nn.Module, lr=1e-3, device='cpu'):
-    print(network)
-    loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(network.parameters(), lr=lr)
-
+# trains a single epoch, going over the entire dataset in batches.
+def train_single_epoch(train_dataloader: DataLoader, network: nn.Module, loss_fn, optimizer, device):
     size = len(train_dataloader.dataset)
     network.train()
     for batch, (X, y) in enumerate(train_dataloader):
@@ -48,11 +45,25 @@ def train_network(train_dataloader: DataLoader, network: nn.Module, lr=1e-3, dev
         optimizer.zero_grad()
 
         if batch % 100 == 0:
-            loss, current = loss.item(), (batch+1) * len(X)
-            print(f"loss: {loss:>7f} [{current:>5d}/{size:>5d}]")
-    return
+            loss, current = loss.item(), (batch + 1) * len(X)
+            print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
-def test_network(dataloader, model, loss_fn, device="cpu"):
+# Trains multiple epochs
+def train(train_dataloader, test_dataloader, epochs=5, lr=1e-3, device="cpu"):
+    network = MyNetwork().to(device)
+    print(network)
+    loss_fn = nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(network.parameters(), lr=lr)
+
+    for t in range(epochs):
+        print(f"===== Epoch: {t} =====")
+        train_single_epoch(train_dataloader, network, loss_fn, optimizer, device)
+        test(test_dataloader, network, loss_fn, device)
+        print(f"======================")
+    print("Complete!")
+
+
+def test(dataloader, model, loss_fn, device):
     size = len(dataloader.dataset)
     num_batches = len(dataloader)
     model.eval()
@@ -69,7 +80,7 @@ def test_network(dataloader, model, loss_fn, device="cpu"):
     correct /= size
     print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
 
-def prepare_training_data(path: str, batch_size=1024) -> Tuple[DataLoader, DataLoader]:
+def prepare_training_data(path: str, batch_size=512) -> Tuple[DataLoader, DataLoader]:
     mnist_train_data = datasets.MNIST(path, train=True, download=True, transform=ToTensor())
     mnist_test_data = datasets.MNIST(path, train=False, download=True, transform=ToTensor())
     train_dataloader = DataLoader(mnist_train_data, batch_size=batch_size)
@@ -85,8 +96,7 @@ def prepare_training_data(path: str, batch_size=1024) -> Tuple[DataLoader, DataL
 def main(argv):
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     train_loader, test_loader = prepare_training_data("./data/")
-    model = MyNetwork().to(DEVICE)
-    train_network(train_loader, model, device=DEVICE)
+    train(train_loader, test_loader, epochs=10, device=DEVICE)
     return 0
 
 if __name__ == "__main__":
