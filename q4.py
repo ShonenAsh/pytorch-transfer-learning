@@ -1,8 +1,6 @@
-"""
-Nicholas Payson & Ashish A. Magadum
-CS5330 Computer Vision
-Spring 2025
-"""
+# Authors: Nicholas Payson & Ashish Magadum
+# CS5330 PRCV Spring 2025
+# This file was used to perform additional experiments on the model
 
 # import statements
 import sys
@@ -26,9 +24,7 @@ random_seed = 1
 torch.backends.cudnn.enabled = False
 torch.manual_seed(random_seed)
 
-# class definitions
-
-# My Neural Network for Task One
+# My (Nicholas) Neural Network for Task One
 class MyNet(nn.Module):
 
     # set up the network according params
@@ -74,9 +70,9 @@ class MyNet(nn.Module):
     def forward(self, x):
         return self.network(x)
 
-def get_score_for_params(conv, drop, lin):
+def get_score_for_params(conv, drop, lin, model_dir, data_path):
     train_loader = torch.utils.data.DataLoader(
-        torchvision.datasets.MNIST('/files/', train=True, download=True,
+        torchvision.datasets.MNIST(data_path, train=True, download=True,
                                    transform=torchvision.transforms.Compose([
                                        torchvision.transforms.ToTensor(),
                                        torchvision.transforms.Normalize(
@@ -85,7 +81,7 @@ def get_score_for_params(conv, drop, lin):
         batch_size=batch_size_train, shuffle=True)
 
     test_loader = torch.utils.data.DataLoader(
-        torchvision.datasets.MNIST('/files/', train=False, download=True,
+        torchvision.datasets.MNIST(data_path, train=False, download=True,
                                    transform=torchvision.transforms.Compose([
                                        torchvision.transforms.ToTensor(),
                                        torchvision.transforms.Normalize(
@@ -107,14 +103,18 @@ def get_score_for_params(conv, drop, lin):
 
     correctness = test(network, test_loader, test_losses)
     for epoch in range(1, n_epochs + 1):
-        train(epoch, network, optimizer, train_loader, train_counter, train_losses)
+        train(epoch, network, optimizer, train_loader, train_counter, train_losses, model_dir)
         correctness = test(network, test_loader, test_losses)
 
     return correctness
 
 
-# main function (yes, it needs a comment too)
+# main function, accepts a model_directory and mnist_data_dir
+# model directory: a directory where the model will be saved
 def main(argv):
+    if (len(argv) < 3):
+        print("Usage: python q4.py <dir> <mnist_data_dir>")
+        sys.exit(-1)
     # Search Strategy:
     # Alternate running through all possibilities for conv, drop, and linear layers.
     # Get the best settings for one type while holding the other two constant, then switch which two are constant.
@@ -184,7 +184,7 @@ def main(argv):
         print(f"Running convs {main_iterations + 1}")
         for conv_index in range(len(all_convs)):
 
-            score = get_score_for_params(all_convs[conv_index], all_drops[best_drop_index], all_linears[best_linear_index])
+            score = get_score_for_params(all_convs[conv_index], all_drops[best_drop_index], all_linears[best_linear_index], argv[1], argv[2])
 
             if score > current_best_score:
                 current_best_score = score
@@ -200,7 +200,7 @@ def main(argv):
         for drop_index in range(len(all_drops)):
 
             score = get_score_for_params(all_convs[best_conv_index], all_drops[drop_index],
-                                         all_linears[best_linear_index])
+                                         all_linears[best_linear_index], argv[1], argv[2])
 
             if score > current_best_score:
                 current_best_score = score
@@ -216,7 +216,7 @@ def main(argv):
         for lin_index in range(len(all_linears)):
 
             score = get_score_for_params(all_convs[best_conv_index], all_drops[best_drop_index],
-                                         all_linears[lin_index])
+                                         all_linears[lin_index], argv[1], argv[2])
 
             if score > current_best_score:
                 current_best_score = score
@@ -234,7 +234,7 @@ def main(argv):
     return
 
 # train the network as described in the tutorial
-def train(epoch, network, optimizer, train_loader, train_counter, train_losses):
+def train(epoch, network, optimizer, train_loader, train_counter, train_losses, model_dir):
   network.train()
   for batch_idx, (data, target) in enumerate(train_loader):
     optimizer.zero_grad()
@@ -249,8 +249,8 @@ def train(epoch, network, optimizer, train_loader, train_counter, train_losses):
       train_losses.append(loss.item())
       train_counter.append(
         (batch_idx*64) + ((epoch-1)*len(train_loader.dataset)))
-      torch.save(network.state_dict(), 'C:/Users/nickp/Downloads/results/model.pth')
-      torch.save(optimizer.state_dict(), 'C:/Users/nickp/Downloads/results/optimizer.pth')
+      torch.save(network.state_dict(), f'{model_dir}/model.pth')
+      torch.save(optimizer.state_dict(), f'{model_dir}/optimizer.pth')
 
 # test the network as described in the tutorial
 def test(network, test_loader, test_losses):
@@ -272,6 +272,6 @@ def test(network, test_loader, test_losses):
   return 100. * correct / len(test_loader.dataset)
 
 
-# call main when run from command line, passing in argv (which are ignored here)
+# main function, accepts a model_directory and mnist_data_dir
 if __name__ == "__main__":
     main(sys.argv)

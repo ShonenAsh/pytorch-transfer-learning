@@ -176,4 +176,7 @@ cython_debug/
 
 **/data/*
 model/*
-**/*/*.pdf
+**/*.pdf
+**/*.png
+**/*.jpg
+**/res/*

@@ -1,57 +1,35 @@
 # Authors: Ashish Magadum & Nicholas Payson
 # CS5330 PRCV Spring 2025
-# This file trains and tests a Convolutional neural network on the MNIST handwritten digits dataset
+# This file retrains an existing model file and tests it on greek letters
+# The main function, accepts a model pth file, greek_train_dir, greek_test_dir
 
-import torch
-from torch import nn as nn
-from torch._prims_common import Tensor
-from torch.cuda import is_available
-import torch.nn.functional as F
-from torch.utils.data import DataLoader 
-from torchvision import datasets
-import torchvision
-from torchvision.transforms import Normalize, ToTensor
-from typing import Tuple
+from ast import arg
 import sys
 from datetime import datetime
-import matplotlib.pyplot as plt
+from typing import Tuple
 
+import matplotlib.pyplot as plt
+import torch
+import torch.nn.functional as F
+import torchvision
+from torch import nn as nn
+from torch.utils.data import DataLoader
+from torchvision.transforms import Normalize, ToTensor
+from torchvision.transforms import functional as TF
+
+from model import MyNetwork
+
+# Apply grayscale, random rotations and center cropping followed by invert
 class GreekTransform:
     def __init__(self):
         pass
 
     def __call__(self, x):
-        x = torchvision.transforms.functional.rgb_to_grayscale( x )
-        # x = torchvision.transforms.functional.affine( x, 0, (0,0), 36/128, 0 )
-        x = torchvision.transforms.functional.center_crop( x, (28, 28) )
-        return torchvision.transforms.functional.invert( x )
+        x = TF.rgb_to_grayscale( x )
+        x = TF.affine( x, 0, (0,0), 36/128, 0 )
+        x = TF.center_crop(x, output_size=(28, 28))
+        return TF.invert( x )
 
-# class definitions
-class MyNetwork(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5, padding=0)
-        self.maxpool1 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5, padding=0)
-        self.maxpool2 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(320, 50)
-        self.fc2 = nn.Linear(50, 10)
-
-
-    # computes a forward pass for the network
-    # methods need a summary comment
-    def forward(self, x):
-        x = self.conv1(x)
-        x = F.relu(self.maxpool1(x))
-        x = self.conv2(x)
-        x = F.dropout2d(x, 0.1)
-        x = F.relu(self.maxpool2(x))
-        x = self.flatten(x)
-        x = F.relu(self.fc1(x))
-        x = F.log_softmax(self.fc2(x), dim=1)
-
-        return x
 
 # train the network as described in the tutorial
 def train_single_epoch(epoch, network, optimizer, train_loader, train_counter, train_losses, train_accs):
@@ -144,7 +122,7 @@ def train(train_dataloader, test_dataloader, model_path, epochs=5, lr=0.01, devi
     plt.legend(['Train Loss', 'Test Loss'], loc='upper right')
     plt.xlabel('# training examples seen')
     plt.ylabel('Negative log likelihood loss')
-    fig.savefig("train_test_loss_greek.png")
+    fig.savefig("./train_test_loss_greek.png")
 
     fig = plt.figure()
     plt.plot(train_counter, train_accs, color='blue')
@@ -153,13 +131,13 @@ def train(train_dataloader, test_dataloader, model_path, epochs=5, lr=0.01, devi
     plt.legend(['Train Accuracy', 'Test Accuracy'], loc='upper right')
     plt.xlabel('# training examples seen')
     plt.ylabel('Accuracy')
-    fig.savefig("train_test_acc_greek.png")
+    fig.savefig("./train_test_acc_greek.png")
 
 
-
-def prepare_training_data(path: str, batch_size=5) -> Tuple[DataLoader, DataLoader]:
+# Read greek letters from 2 separate directories
+def prepare_training_data(train_path: str, test_path:str, batch_size=5) -> Tuple[DataLoader, DataLoader]:
     greek_train = DataLoader(
-            torchvision.datasets.ImageFolder("./data/greek_train",
+            torchvision.datasets.ImageFolder(train_path,
                                              transform=torchvision.transforms.Compose([
                                                  ToTensor(),
                                                  GreekTransform(),
@@ -170,7 +148,7 @@ def prepare_training_data(path: str, batch_size=5) -> Tuple[DataLoader, DataLoad
                                                  ,batch_size=batch_size, shuffle=True)
 
     greek_test = DataLoader(
-            torchvision.datasets.ImageFolder("./data/greek_test",
+            torchvision.datasets.ImageFolder(test_path,
                                              transform=torchvision.transforms.Compose([
                                                  ToTensor(),
                                                  GreekTransform(),
@@ -187,12 +165,13 @@ def prepare_training_data(path: str, batch_size=5) -> Tuple[DataLoader, DataLoad
         break
     return greek_train, greek_test
 
-# main function (yes, it needs a comment too)
+# main function, accepts a model pth file, greek_train_dir, greek_test_dir
 def main(argv):
-    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-    # DEVICE = "cpu"
-    greek_train, greek_test = prepare_training_data("./data/")
-    train(greek_train, greek_test, "./model/model_2025-03-27T15:05:52.pth", epochs=8, device=DEVICE)
+    if (len(argv) < 4):
+        print("Usage: python q1.py <model_path> <train_dir> <test_dir>")
+        sys.exit(-1)
+    greek_train, greek_test = prepare_training_data(argv[2], argv[3])
+    train(greek_train, greek_test, argv[1], epochs=8)
     return 0
 
 if __name__ == "__main__":
